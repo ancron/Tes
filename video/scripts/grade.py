@@ -33,7 +33,7 @@ CFG = {
     '52312':  dict(w=(0.30, 0.55, 0.15), lo=0.06, hi=1.00, gamma=1.45, pal=RED, bloom=0.7),
     '3759':   dict(w=(0.30, 0.55, 0.15), lo=0.05, hi=0.95, gamma=1.25, pal=RED, bloom=0.8),
     '50951':  dict(w=(0.33, 0.34, 0.33), lo=0.08, hi=0.90, gamma=1.20, pal=RED, bloom=0.4),
-    '41999':  dict(w=(1.00, -1.00, 0.00), lo=0.08, hi=1.05, gamma=0.95, pal=RED, bloom=0.5),
+    '41999':  dict(w=(1.00, -1.00, 0.00), lo=0.10, hi=1.10, gamma=1.6, pal=RED, bloom=0.5),
     '3465':   dict(w=(0.40, 0.45, 0.15), lo=0.03, hi=0.70, gamma=0.90, pal=RED, bloom=1.0),
     '4426':   dict(w=(0.40, 0.45, 0.15), lo=0.05, hi=0.75, gamma=1.00, pal=RED, bloom=0.9),
     '3463':   dict(w=(0.40, 0.45, 0.15), lo=0.03, hi=0.70, gamma=0.90, pal=RED, bloom=1.0, crop=(0, 420, 1080, 608)),

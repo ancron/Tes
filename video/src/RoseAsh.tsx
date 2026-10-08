@@ -20,13 +20,14 @@ const H = 1080;
 
 // Kicks of the user's track (frames @30fps), from analyze_audio.py.
 const KICKS = [9, 32, 56, 79, 102, 149, 173, 196, 220, 243, 266, 290, 313, 337, 360];
-const SUBHITS = [118, 253, 275, 325];
+const SUBHITS = [21, 118, 253, 275, 325];
 
 // Posterize-time: every drawing is a new pose. Ones on hits/velocity, threes in the break.
 const SEGS: { from: number; to: number; hold: number }[] = [
   { from: 0, to: 9, hold: 2 },
   { from: 9, to: 13, hold: 1 },
-  { from: 13, to: 32, hold: 2 },
+  { from: 13, to: 21, hold: 2 },
+  { from: 21, to: 32, hold: 2 },
   { from: 32, to: 56, hold: 2 },
   { from: 56, to: 79, hold: 2 },
   { from: 79, to: 90, hold: 2 },
@@ -146,9 +147,9 @@ const Camera: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const hit = hitAt(d);
   // new pose every drawing: jump, not glide
   const r = (k: string) => random(`${k}-${d}`) * 2 - 1;
-  let scale = 1.06 + 0.035 * r("s") + 0.09 * hit;
-  let tx = 26 * r("x") + 34 * hit * r("hx");
-  let ty = 16 * r("y") + 26 * hit * r("hy");
+  let scale = 1.07 + 0.045 * r("s") + 0.1 * hit;
+  let tx = 34 * r("x") + 40 * hit * r("hx");
+  let ty = 20 * r("y") + 30 * hit * r("hy");
   let rot = 0.9 * r("r") + 1.6 * hit * r("hr");
   // velocity dive into the heart of the rose (122–133)
   if (d >= 122 && d < 134) {
@@ -159,8 +160,12 @@ const Camera: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     rot = 6 * k * k;
   }
   // exposure strobe: every drawing gets its own exposure; hits pop
-  let bright = 1 + 0.28 * r("e") + 0.45 * hit;
+  let bright = 1 + 0.32 * r("e") + 0.45 * hit;
   if (d >= 134 && d < 149) bright = 0.8 + 0.2 * r("e");
+  // born in light: the incoming scene is overexposed, then settles (black stays black)
+  const BURN: Record<number, number> = { 10: 2.8, 11: 1.8, 12: 1.3, 103: 2.6, 104: 1.6, 150: 3.0, 151: 2.0, 152: 1.4,
+    197: 2.7, 198: 1.7, 199: 1.25, 244: 2.7, 245: 1.7, 246: 1.25 };
+  const burn = BURN[d] ? (BURN[d] - 1) / 2 : 0; // 0..1
   return (
     <AbsoluteFill
       style={{
@@ -169,6 +174,17 @@ const Camera: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       }}
     >
       {children}
+      {burn > 0 && (
+        // red burn (color-dodge): red channel blows out, blue/green barely move -> crimson, never pink
+        <AbsoluteFill
+          style={{
+            mixBlendMode: "color-dodge",
+            backgroundColor: `rgb(${Math.round(255 * (0.25 + 0.5 * burn))}, ${Math.round(255 * 0.22 * burn)}, ${Math.round(
+              255 * 0.2 * burn,
+            )})`,
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -178,16 +194,10 @@ const Camera: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const Edit: React.FC = () => {
   const d = useCurrentFrame();
   const dive = (abs: number) => (abs >= 122 && abs < 134 ? 10 + 14 * (abs - 122) : 0);
-  const dropBlur = (abs: number) => (abs >= 150 && abs < 153 ? [70, 40, 18][abs - 150] : 0);
+  const dropBlur = (abs: number) => (abs >= 150 && abs < 153 ? [40, 20, 8][abs - 150] : 0);
 
   // flash births: white over the outgoing scene, the incoming scene is born inside it
-  const births: Record<number, number> = {
-    9: 0.92, 10: 0.62, 11: 0.3, 12: 0.1,
-    102: 0.85, 103: 0.5, 104: 0.2,
-    149: 1.0, 150: 0.66, 151: 0.32, 152: 0.12,
-    196: 0.9, 197: 0.55, 198: 0.22,
-    243: 0.9, 244: 0.55, 245: 0.22,
-  };
+  const births: Record<number, number> = { 9: 0.92, 102: 0.88, 149: 1.0, 196: 0.9, 243: 0.9 };
   const white = births[d] ?? 0;
   const impact = d === 290 || d === 291;
   const black = d === 148;
@@ -197,26 +207,27 @@ const Edit: React.FC = () => {
       <Camera>
         <AbsoluteFill style={impact ? { filter: "grayscale(1) contrast(5) invert(1)" } : undefined}>
           {/* A 0–9: smoke breathing — continues the end of the loop */}
-          <Shot name="A smoke" from={0} to={10}>{(f) => <Clip id="50951" at={1.5} rate={1.5} from={f} />}</Shot>
+          <Shot name="A smoke" from={0} to={10}>{(f) => <Clip id="50951" at={1.867} rate={2.0} from={f} />}</Shot>
           {/* B 10–31: the rose, born in the flash */}
-          <Shot name="B rose" from={10} to={32}>{(f) => <Clip id="171" at={2.0} from={f} scale={1.15} />}</Shot>
+          <Shot name="B rose" from={10} to={21}>{(f) => <Clip id="171" at={2.0} rate={2.0} from={f} scale={1.15} />}</Shot>
+          <Shot name="B rose 2" from={21} to={32}>{(f) => <Clip id="171" at={4.6} rate={2.0} from={f} scale={1.35} x={160} mirror />}</Shot>
           {/* C 32–55: closer, other side; vocal line → light trail up */}
           <Shot name="C rose close" from={32} to={56}>
             {(f) => (
-              <Clip id="171" at={7.0} from={f} scale={1.55} x={-140} y={60} mirror
-                trail={{ direction: 90, distance: 140, color: "#E31E3C" }} />
+              <><Clip id="171" at={7.0} rate={2.0} from={f} scale={1.4} x={-120} y={40} mirror />
+                <Clip id="3465" at={2.0} from={f} blend="screen" /></>
             )}
           </Shot>
           {/* D 56–78: hands reach (crimson) */}
-          <Shot name="D hands" from={56} to={79}>{(f) => <Clip id="40938" at={4.5} from={f} scale={1.1} />}</Shot>
+          <Shot name="D hands" from={56} to={79}>{(f) => <Clip id="40938" at={4.5} rate={1.6} from={f} scale={1.1} />}</Shot>
           {/* E 79–101: the watcher in the beam; pose jump at 90 */}
-          <Shot name="E figure" from={79} to={90}>{(f) => <Clip id="1038" at={1.2} from={f} scale={1.2} />}</Shot>
-          <Shot name="E figure 2" from={90} to={102}>{(f) => <Clip id="1038" at={10.8} from={f} scale={1.45} y={120} />}</Shot>
+          <Shot name="E figure" from={79} to={90}>{(f) => <Clip id="1038" at={1.2} rate={1.4} from={f} scale={1.2} />}</Shot>
+          <Shot name="E figure 2" from={90} to={102}>{(f) => <Clip id="1038" at={10.8} rate={1.4} from={f} scale={1.2} x={110} y={-40} />}</Shot>
           {/* F 102–133: macro rose catches fire; dive into the heart */}
           <Shot name="F macro" from={102} to={134}>
             {(f) => (
               <>
-                <Clip id="100917" at={1.0} from={f} zoom={dive} />
+                <Clip id="100917" at={1.0} rate={1.6} from={f} zoom={dive} />
                 <Clip id="3759" at={4.0} from={f} blend="screen" scale={1.1} y={60} />
               </>
             )}
@@ -227,32 +238,40 @@ const Edit: React.FC = () => {
           <Shot name="H drop" from={149} to={173}>
             {(f) => (
               <>
-                <Clip id="100899" at={2.0} from={f} zoom={dropBlur} scale={1.1} />
+                <Clip id="100899" at={2.0} rate={1.4} from={f} zoom={dropBlur} scale={1.1} />
                 <Clip id="52304" at={0.6} from={f} blend="screen" zoom={dropBlur} />
               </>
             )}
           </Shot>
           {/* I 173–195: blood ink blooms */}
-          <Shot name="I ink" from={173} to={197}>{(f) => <Clip id="41999" at={2.2} from={f} mirror scale={1.1} />}</Shot>
+          <Shot name="I ink" from={173} to={185}>{(f) => <Clip id="41999" at={2.2} rate={2.5} from={f} mirror scale={1.1} />}</Shot>
+          <Shot name="I ink 2" from={185} to={197}>{(f) => <Clip id="41999" at={9.0} rate={2.5} from={f} scale={1.35} y={-60} />}</Shot>
           {/* J 197–242: dancer in smoke; jump at 220 */}
-          <Shot name="J dancer" from={197} to={220}>{(f) => <Clip id="33899" at={8.4} from={f} scale={1.15} />}</Shot>
-          <Shot name="J dancer 2" from={220} to={244}>{(f) => <Clip id="33899" at={14.0} from={f} scale={1.4} y={80} mirror />}</Shot>
+          <Shot name="J dancer" from={197} to={220}>{(f) => <Clip id="33899" at={8.4} rate={1.3} from={f} scale={1.15} />}</Shot>
+          <Shot name="J dancer 2" from={220} to={244}>{(f) => <Clip id="33899" at={14.0} rate={1.3} from={f} scale={1.4} y={80} mirror />}</Shot>
           {/* K 244–289: cold hands sing the vocal line, crimson trails */}
           <Shot name="K cold hands" from={244} to={266}>
-            {(f) => <Clip id="40938c" at={7.1} from={f} trail={{ direction: 90, distance: 220, color: "#E31E3C" }} />}
+            {(f) => (
+              <>
+                <Clip id="3465" at={4.0} from={f} blend="screen" scale={1.2} />
+                <Clip id="40938c" at={7.1} rate={1.6} from={f} blend="screen" />
+              </>
+            )}
           </Shot>
           <Shot name="K cold hands 2" from={266} to={290}>
             {(f) => (
-              <Clip id="40938c" at={9.6} from={f} mirror scale={1.25}
-                trail={{ direction: 90, distance: 260, color: "#E31E3C" }} />
+              <>
+                <Clip id="4426" at={1.5} from={f} blend="screen" />
+                <Clip id="40938c" at={9.6} rate={1.6} from={f} mirror scale={1.25} blend="screen" />
+              </>
             )}
           </Shot>
           {/* L 290–312: roses in fire */}
           <Shot name="L roses fire" from={290} to={313}>
             {(f) => (
               <>
-                <Clip id="100898" at={3.0} from={f} />
-                <Clip id="52312" at={6.0} from={f} blend="screen" opacity={0.85} />
+                <Clip id="100898" at={3.0} rate={1.8} from={f} />
+                <Clip id="52312" at={6.0} rate={1.5} from={f} blend="screen" opacity={0.85} />
               </>
             )}
           </Shot>
@@ -260,13 +279,14 @@ const Edit: React.FC = () => {
           <Shot name="M rose burns" from={313} to={337}>
             {(f) => (
               <>
-                <Clip id="171" at={12.9} from={f} scale={1.3} />
-                <Clip id="52304" at={9.6} from={f} blend="screen" />
+                <Clip id="171" at={12.9} rate={1.8} from={f} scale={1.2} y={-60} />
+                <Clip id="3759" at={8.0} rate={1.5} from={f} blend="screen" scale={1.25} y={140} />
+                <Clip id="4426" at={2.0} from={f} blend="screen" opacity={0.8} />
               </>
             )}
           </Shot>
           {/* N 337–361: smoke — runs into frame 0 */}
-          <Shot name="N smoke" from={337} to={362}>{(f) => <Clip id="50951" at={0.25} rate={1.5} from={f} />}</Shot>
+          <Shot name="N smoke" from={337} to={362}>{(f) => <Clip id="50951" at={0.2} rate={2.0} from={f} />}</Shot>
         </AbsoluteFill>
         {impact && <AbsoluteFill style={{ backgroundColor: "#E31E3C", mixBlendMode: "multiply" }} />}
       </Camera>
