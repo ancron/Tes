@@ -1,0 +1,14 @@
+{
+ "known_bad": "edits/burning-rose/burning_rose.mp4",
+ "user_verdict": "жесть",
+ "scores_by_role": {
+  "color_light": 4,
+  "craft": 5,
+  "motion": 4,
+  "music_sync": 5,
+  "originality": 6,
+  "transitions": 4,
+  "viewer": 4
+ },
+ "mean": 4.57
+}

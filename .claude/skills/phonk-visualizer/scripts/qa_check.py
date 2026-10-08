@@ -53,6 +53,17 @@ def main():
     crimson = reds & ((h >= 345) | (h <= 12))
     pink = reds & (h >= 300) & (h < 345)
     pink_share = pink.sum() / max(1, pink.sum() + crimson.sum())
+    # accents: flash / black frame / hard cut (same detector as critic_packet.py)
+    small = gray.reshape(n, frames.shape[1], frames.shape[2])
+    fdiff = np.abs(np.diff(small, axis=0)).mean(axis=(1, 2))
+    ev = []
+    for i in range(1, n):
+        hit = (mean[i] > 170 >= mean[i - 1]) or (mean[i] < 8 <= mean[i - 1]) or fdiff[i - 1] > 40
+        if hit and (not ev or i - ev[-1] > 8):
+            ev.append(i)
+    ev_rate = len(ev) / (n / fps)
+    first_ev = ev[0] if ev else n
+    strobe = float((fdiff > 25).mean())
     p5 = float(np.percentile(gray, 5))
     deep = float((gray < 12).mean())
 
@@ -67,6 +78,9 @@ def main():
         f"{verdict(p5 <= 6)} black level p5 luma {p5:.0f} (<= 6; ref 3, fail 11)",
         f"{verdict(deep >= 0.15)} share darker than 12/255 {deep:.2f} (>= 0.15; ref 0.21, fail 0.09)",
         f"{verdict(pink_share <= 0.45)} pink among reds {pink_share:.2f} (<= 0.45; ref 0.31, fail 0.85)",
+        f"{verdict(ev_rate >= 0.8)} accents per second {ev_rate:.2f} (>= 0.8; ref 1.08, fail 0.40)",
+        f"{verdict(first_ev <= 30)} first accent at frame {first_ev} (<= 30; ref 28, fail 141)",
+        f"{verdict(strobe >= 0.18)} strobe: share of frames with big change {strobe:.2f} (>= 0.18; ref 0.25, fail 0.09)",
         f"{verdict(worst <= 3)} max big flashes in any 1 s window: {worst} (<= 3)",
         f"{verdict(seam <= max(typical * 2.5, 8))} loop seam diff {seam:.1f} vs typical frame diff {typical:.1f}",
         f"     mean luma min/median/max: {mean.min():.0f}/{np.median(mean):.0f}/{mean.max():.0f}",
@@ -85,7 +99,7 @@ def main():
             if d[j] >= 40:
                 bad += share
             lines.append(f"       {hx} {share * 100:5.1f}% → {CANON[j]} ({d[j]:.0f}){flag}")
-        lines.insert(9, f"{verdict(bad < 0.12)} off-palette area {bad * 100:.1f}% (< 12%, distance < 40)")
+        lines.insert(12, f"{verdict(bad < 0.12)} off-palette area {bad * 100:.1f}% (< 12%, distance < 40)")
     rep = "\n".join(lines)
     open(os.path.join(a.out, "qa.txt"), "w").write(rep)
     print(rep)

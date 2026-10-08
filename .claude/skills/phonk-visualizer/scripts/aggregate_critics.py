@@ -4,11 +4,15 @@
 Usage: aggregate_critics.py PACKET_DIR CRITIC_JSON [CRITIC_JSON ...]
 
 Reads PACKET_DIR/.key.json to un-blind X/Y, drops critics that failed calibration
-(scored the known-bad clip above 4), and applies the gate: mean >= 8 and min >= 7.
+(scored the known-bad clip more than 1.5 above that role's baseline from
+references/calibration/baseline.json), and applies the gate: mean >= 8 and min >= 7.
 """
 import json
+import os
 import re
 import sys
+
+BASELINE = os.path.join(os.path.dirname(__file__), '..', 'references', 'calibration', 'baseline.json')
 
 
 def load(path):
@@ -21,17 +25,19 @@ def main():
     packet, files = sys.argv[1], sys.argv[2:]
     key = json.load(open(f'{packet}/.key.json'))
     cand, cal = key['candidate'], key.get('calibration')
+    base = json.load(open(BASELINE))['scores_by_role'] if os.path.exists(BASELINE) else {}
     valid, dropped = [], []
     for f in files:
         c = load(f)
         sc = c.get('scores', {})
-        if cal and float(sc.get(cal, 0)) > 4:
-            dropped.append((c.get('role', f), sc.get(cal)))
+        limit = base.get(c.get('role'), 4) + 1.5
+        if cal and float(sc.get(cal, 0)) > limit:
+            dropped.append((c.get('role', f), sc.get(cal), limit))
             continue
         valid.append(c)
     print(f'candidate = {cand}, calibration = {cal}')
-    for role, s in dropped:
-        print(f'  DROPPED {role}: scored the known-bad clip {s} (> 4) — rerun this role')
+    for role, s, limit in dropped:
+        print(f'  DROPPED {role}: scored the known-bad clip {s} (> {limit}) — rerun this role')
     if not valid:
         print('no valid critics')
         return 1
