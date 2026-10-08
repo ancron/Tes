@@ -16,7 +16,7 @@ import time
 import cv2
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../.claude/skills/phonk-visualizer/scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
 from fxkit import (DUST, PETAL, SHARD, SPARK, FFmpegWriter, HoldSchedule, Noise, Palette, Particles,  # noqa: E402
                    camera, composite_particles, finish, gblur, glow, gradient_map, light_ring, luma, smoothstep,
                    soft_disc, toon_fire, zoom_blur)

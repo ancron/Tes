@@ -11,7 +11,7 @@ import numpy as np
 import scipy.signal as ss
 from scipy.io import wavfile
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../.claude/skills/phonk-visualizer/scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
 from phonk_synth import (SR, Mixer, bass808, clap, cowbell, drive, hat, hz, impact, kick, lp, pad,  # noqa: E402
                          reverse_swell, riser)
 

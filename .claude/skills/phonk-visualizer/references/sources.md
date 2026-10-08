@@ -1,5 +1,16 @@
 # Источники исследования
 
+Поисковые запросы для похожих работ: `dark red VFX edit`, `abstract motion graphics edit`, `dark phonk edit`, `red glow velocity edit`. Названия трёх составляющих стиля (velocity / beat sync, motion blur / camera shake, surreal / horror aesthetic) подсказал пользователь из разбора другой нейросети.
+
+Remotion:
+- Официальный плагин Claude Code: https://github.com/remotion-dev/claude-code-plugin (скиллы remotion-*)
+- MCP документации: `@remotion/mcp` (инструмент `remotion-documentation`)
+- Эффекты: https://www.remotion.dev/docs/effects, motion blur: https://www.remotion.dev/docs/motion-blur, Freeze: https://www.remotion.dev/docs/freeze
+
+Материал (лицензию проверять для каждого файла):
+- Mixkit (free license), Pexels (Pexels license), Pixabay (Pixabay Content License)
+- Музыка: Pixabay Music, NCS, Free Music Archive (CC), YouTube Audio Library
+
 Фонк-визуал и жанр:
 - Vortexia, Dark Phonk Aesthetic Visualizer: маски, красно-чёрная гамма, деградация картинки — https://vortexia.live/visuals/phonk-drift-visuals/
 - Native Instruments, Phonk music — https://blog.native-instruments.com/phonk-music/
