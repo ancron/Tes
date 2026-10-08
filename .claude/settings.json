@@ -1,5 +1,16 @@
 {
-  "enabledMcpjsonServers": ["blender"],
+  "enabledMcpjsonServers": ["blender", "remotion-documentation"],
+  "extraKnownMarketplaces": {
+    "remotion": {
+      "source": {
+        "source": "github",
+        "repo": "remotion-dev/claude-code-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "remotion@remotion": true
+  },
   "hooks": {
     "SessionStart": [
       {

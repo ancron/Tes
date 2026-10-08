@@ -1,13 +1,26 @@
 #!/bin/bash
-# Cloud-session setup: Blender + the official MCP for Blender addon
-# (https://github.com/ahujasid/blender-mcp, package "mcp-for-blender").
-# Blender runs on a virtual display (Xvfb) so the addon's socket server
-# (port 9876) is up before the MCP server from .mcp.json connects to it.
+# Cloud-session setup:
+#  - Remotion project in video/ (deps + headless Chrome for rendering),
+#  - Python libs used by the phonk-visualizer skill scripts,
+#  - Blender + the official MCP for Blender addon
+#    (https://github.com/ahujasid/blender-mcp, package "mcp-for-blender"),
+#    running on a virtual display (Xvfb) so the addon's socket server
+#    (port 9876) is up before the MCP server from .mcp.json connects to it.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
+
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# 0. Remotion (video/) and Python analysis libs
+if [ -f "$PROJECT_DIR/video/package.json" ]; then
+  (cd "$PROJECT_DIR/video" && npm install --no-audit --no-fund >/dev/null 2>&1 \
+    && npx remotion browser ensure >/dev/null 2>&1) || echo "Remotion setup failed" >&2
+fi
+pip install -q librosa opencv-python-headless matplotlib scipy >/dev/null 2>&1 \
+  || echo "pip install of analysis libs failed" >&2
 
 BLENDER_VERSION="5.2.2"
 BLENDER_SERIES="${BLENDER_VERSION%.*}"

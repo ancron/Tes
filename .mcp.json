@@ -6,6 +6,10 @@
       "env": {
         "DISABLE_TELEMETRY": "true"
       }
+    },
+    "remotion-documentation": {
+      "command": "npx",
+      "args": ["-y", "@remotion/mcp@4.0.534"]
     }
   }
 }
