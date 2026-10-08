@@ -25,3 +25,11 @@
 | Угасание | 332–378 | такт 8 | Пламя оседает, роза возвращается к тлению = кадр 0 | бесшовная петля | 3 | тьма |
 
 **Эффективный fps:** около 14. **Большие вспышки:** 3 за ролик, не чаще 1 в секунду.
+
+## Сборка
+```bash
+python3 make_track.py OUT/        # OUT/track.wav + OUT/events.json
+python3 make_video.py OUT/        # OUT/burning_rose.mp4 (≈4 мин на 4 CPU)
+python3 ../../.claude/skills/phonk-visualizer/scripts/qa_check.py OUT/burning_rose.mp4 OUT/qa --palette
+```
+Результат QA лежит в `qa.txt`.

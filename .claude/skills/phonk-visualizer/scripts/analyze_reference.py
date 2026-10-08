@@ -24,11 +24,15 @@ def read_frames(path, size=(256, 144)):
     return np.array(frames), fps
 
 
-def hold_runs(frames, thr=1.2):
+def hold_runs(frames, thr=1.2, px_thr=10, frac=0.002):
+    """Two frames are 'the same image' when almost no pixel changed noticeably.
+    (A mean-diff test alone mislabels slow motion on dark frames as holds.)"""
     g = frames.mean(axis=3)
-    d = np.abs(np.diff(g, axis=0)).mean(axis=(1, 2))
+    ad = np.abs(np.diff(g, axis=0))
+    d = ad.mean(axis=(1, 2))
+    changed = (ad > px_thr).mean(axis=(1, 2))
     runs, r = [], 1
-    for same in d < thr:
+    for same in (d < thr) & (changed < frac):
         if same:
             r += 1
         else:

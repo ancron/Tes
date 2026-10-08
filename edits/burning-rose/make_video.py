@@ -41,7 +41,7 @@ F_BUILD, F_BREAK, F_DROP, F_ZOOM, F_FLASH, F_REBIRTH_END, F_OUTRO = 95, 130, 142
 KICKS = [(int(round(t * FPS)), s) for t, s in EV['kicks']]
 CLAPS = [int(round(t * FPS)) for t in EV['claps']]
 
-HOLDS = HoldSchedule([(0, F_BUILD, 3), (F_BUILD, F_BREAK, 2), (F_BREAK, F_DROP - 1, 3), (F_DROP - 1, F_DROP, 1),
+HOLDS = HoldSchedule([(0, F_BUILD, 2), (F_BUILD, F_BREAK, 2), (F_BREAK, F_DROP - 1, 3), (F_DROP - 1, F_DROP, 1),
                       (F_DROP, F_DROP + 8, 1), (F_DROP + 8, F_ZOOM, 2), (F_ZOOM, 270, 2), (270, F_FLASH, 1),
                       (F_FLASH, F_FLASH + 4, 1), (F_FLASH + 4, F_REBIRTH_END, 2), (F_REBIRTH_END, F_REBIRTH_END + 2, 1),
                       (F_REBIRTH_END + 2, F_OUTRO, 2), (F_OUTRO, N, 3)], N)
@@ -83,6 +83,7 @@ class Rose:
                 self.petals.append(dict(ring=ri, ang=a, ro=ro * rng.uniform(0.94, 1.04), ri_=rin,
                                         half=np.pi / n * wide, notch=rng.uniform(0.03, 0.08)))
         self.n = len(self.petals)
+        self.spin = 0.0
         self.off = np.zeros((self.n, 2), np.float32)
         self.vel = np.zeros((self.n, 2), np.float32)
         self.rot = np.zeros(self.n, np.float32)
@@ -94,7 +95,7 @@ class Rose:
     def outline(self, i, open_=1.0):
         """Petal polygon (rose-local coords, unsquashed). Returns (poly, lip_polyline)."""
         p = self.petals[i]
-        a, hw = p['ang'], p['half']
+        a, hw = p['ang'] + self.spin, p['half']
         ro, rin = p['ro'] * R * (0.92 + 0.08 * open_), p['ri_'] * R
         u = np.linspace(-1, 1, 23)
         ang_o = a + u * hw
@@ -107,7 +108,7 @@ class Rose:
 
     def body(self, i, frac=0.72, narrow=0.78):
         p = self.petals[i]
-        a, hw = p['ang'], p['half'] * narrow
+        a, hw = p['ang'] + self.spin, p['half'] * narrow
         rin = p['ri_'] * R
         ro = rin + (p['ro'] * R - rin) * frac
         u = np.linspace(-1, 1, 17)
@@ -155,7 +156,7 @@ class Rose:
         # bud: tight spiral
         t = np.linspace(0, 2.6 * 2 * np.pi, 160)
         rr = R * (0.025 + 0.13 * t / t[-1])
-        sp = np.stack([np.cos(t + 0.8) * rr, np.sin(t + 0.8) * rr * SQ], 1) + np.asarray(center, np.float32)
+        sp = np.stack([np.cos(t + 0.8 + self.spin * 2) * rr, np.sin(t + 0.8 + self.spin * 2) * rr * SQ], 1) + np.asarray(center, np.float32)
         cv2.circle(img, (int(center[0] * 4), int(center[1] * 4)), int(R * 0.15 * 4 * bud), tuple(map(float, body_col * alpha)),
                    -1, cv2.LINE_AA, 2)
         sp = (sp - np.asarray(center, np.float32)) * bud + np.asarray(center, np.float32)
@@ -201,7 +202,7 @@ def simulate(f):
     dt = 1 / FPS
     c = (CX, CY)
     # embers: always a few, many in rebirth
-    rate = 3 if f < F_DROP else (1 if f < F_FLASH else (10 if f < F_OUTRO else 3))
+    rate = 5 if f < F_DROP else (1 if f < F_FLASH else (10 if f < F_OUTRO else 3))
     if F_BREAK <= f < F_DROP:
         rate = 0
     E.emit(rate, (CX, CY + 40 * S), speed=(30 * S, 150 * S), spread=(-np.pi * 0.85, -np.pi * 0.15),
@@ -211,7 +212,7 @@ def simulate(f):
 
     if f == F_DROP:
         rose.explode(c)
-        P.emit(1100, c, speed=(250 * S, 1700 * S), radius=R * 0.35, size=(5 * S, 26 * S), life=(1.2, 3.5),
+        P.emit(850, c, speed=(550 * S, 2000 * S), radius=R * 0.6, size=(5 * S, 26 * S), life=(1.0, 3.0),
                layer_p=(0.1, 0.62, 0.28), squash=0.9)
         P.emit(90, c, speed=(300 * S, 1100 * S), kinds=(SHARD, PETAL), kind_p=(0.5, 0.5), size=(14 * S, 34 * S),
                life=(1.0, 2.2), layer_p=(1.0, 0.0, 0.0), light_p=0.15)
@@ -232,7 +233,7 @@ def simulate(f):
                size=(4 * S, 18 * S), life=(0.6, 1.8), light_p=0.4, squash=SQ)
 
     orbit = c if F_DROP < f < F_ZOOM else None
-    P.step(dt, drag=1.9 if f < F_ZOOM else 0.6, orbit=orbit, orbit_strength=160 * S, pull=40 * S)
+    P.step(dt, drag=(1.0 if f < F_DROP + 20 else 1.9) if f < F_ZOOM else 0.6, orbit=orbit, orbit_strength=160 * S, pull=40 * S)
 
     # petals
     if F_DROP <= f < F_ZOOM:
@@ -322,16 +323,19 @@ def render(f):
         fuel = np.zeros((h2, w2), np.float32)
         open_ = 1.0 - 0.06 * ramp(f, F_BREAK, F_DROP - 1)
         bud = 1.0 if f < F_DROP else ease_out(ramp(f, F_FLASH + 18, F_REBIRTH_END))
+        rose.spin = 0.16 * math.sin(2 * math.pi * f / N) if (f < F_DROP or f >= F_REBIRTH_END) else rose.spin
         rose.draw(img, c, lit, rim, open_=open_, fuel=fuel, bud=bud)
         # flames from the rose (build, rebirth, outro)
-        if F_BUILD <= f < F_BREAK:
-            img += fire_layer(f, t, fuel * ramp(f, F_BUILD, F_BREAK - 8), 260, 0.95)
+        if f < F_BUILD:  # smouldering: small licks that breathe with the kicks
+            img += fire_layer(f, t, fuel * (0.35 + 0.25 * kick), 150, 0.55 + 0.35 * kick)
+        elif F_BUILD <= f < F_BREAK:
+            img += fire_layer(f, t, fuel * (0.45 + 0.55 * ramp(f, F_BUILD, F_BREAK - 8)), 260, 0.95)
         elif F_FLASH <= f:
             s = 1.0 if f < F_OUTRO else 1 - ramp(f, F_OUTRO, N - 6)
             img += fire_layer(f, t, fuel, 320, s * (0.75 + 0.25 * kick))
         # light core in the heart (matches the ring later)
         if f < F_BREAK:
-            core = 0.25 + 1.2 * ramp(f, F_BUILD, F_BREAK) ** 1.6
+            core = 0.25 + 0.45 * kick + 1.2 * ramp(f, F_BUILD, F_BREAK) ** 1.6
             img += soft_disc(H, W, CX, CY, R * (0.32 + 0.1 * kick), 2.4)[..., None] * Palette.PINK * core
             img += soft_disc(H, W, CX, CY, R * 0.12, 1.5)[..., None] * Palette.LILAC * core * 0.8
         elif f < F_DROP:  # inhale: everything darkens, a hot point charges
@@ -340,7 +344,9 @@ def render(f):
             img += soft_disc(H, W, CX, CY, R * (0.18 - 0.12 * k), 1.2)[..., None] * Palette.LILAC * (1.2 + 2.5 * k)
         elif f >= F_OUTRO:
             k = ramp(f, F_OUTRO, N - 1)
-            img += soft_disc(H, W, CX, CY, R * 0.32, 2.4)[..., None] * Palette.PINK * (0.9 * (1 - k) + 0.25 * k)
+            img += soft_disc(H, W, CX, CY, R * 0.32, 2.4)[..., None] * Palette.PINK * (0.9 * (1 - k) + 0.25 * k + 0.45 * kick)
+            if k > 0.6:  # back to smouldering licks so the loop seam matches frame 0
+                img += fire_layer(f, t, fuel * (0.35 + 0.25 * kick), 150, (0.55 + 0.35 * kick) * ramp(f, F_OUTRO + 25, N - 1))
         else:
             img += soft_disc(H, W, CX, CY, R * 0.35, 2.0)[..., None] * Palette.PINK * (0.9 + 0.6 * kick)
     else:
@@ -360,7 +366,7 @@ def render(f):
     if F_DROP <= f < F_FLASH:
         ringL = light_ring(H, W, CX, CY, rr, t * 3, nz, threads=44, jitter=0.03, thickness=max(1, int(2 * S)),
                            seed=f // 2)
-        bright = 1.0 + 0.8 * kick + 2.5 * (1 - ramp(f, F_DROP, F_DROP + 8))
+        bright = 1.0 + 0.8 * kick + 1.4 * (1 - ramp(f, F_DROP, F_DROP + 8))
         img += ringL * bright
         img += soft_disc(H, W, CX, CY, rr * 1.35, 1.6)[..., None] * Palette.CRIMSON * 0.35 * bright
         if f < F_DROP + 14:  # shockwave
@@ -428,7 +434,7 @@ os.makedirs(os.path.join(A.out, 'frames'), exist_ok=True)
 writer = None
 if not only:
     name = 'burning_rose.mp4' if DIV == 1 else f'preview_{DIV}.mp4'
-    writer = FFmpegWriter(os.path.join(A.out, name), W, H, FPS, crf=14, audio=os.path.join(A.out, 'track.wav'))
+    writer = FFmpegWriter(os.path.join(A.out, name), W, H, FPS, crf=17, audio=os.path.join(A.out, 'track.wav'))
 for _ in range(90):  # warm-up: embers already drifting at frame 0 (matches the loop's end)
     E.emit(3, (CX, CY + 40 * S), speed=(30 * S, 150 * S), spread=(-np.pi * 0.85, -np.pi * 0.15), radius=R,
            kinds=(SPARK, DUST), kind_p=(0.4, 0.6), size=(2 * S, 7 * S), life=(1.2, 3.2), light_p=0.35,

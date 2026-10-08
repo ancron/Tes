@@ -1,0 +1,5 @@
+OK  effective fps 15.6 (target 12–18); holds x1:34, x2:145, x3:18
+OK  dark pixels (<20) 39.0% (target 20–35%)
+OK  max big flashes in any 1 s window: 1 (<= 3)
+OK  loop seam diff 4.3 vs typical frame diff 1.1
+     mean luma min/median/max: 7/49/220
