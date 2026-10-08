@@ -20,6 +20,8 @@ W, H, FPS = 1920, 1080, 30
 
 RED = [(0.00, '#000000'), (0.14, '#040102'), (0.30, '#3A0716'), (0.46, '#8A1029'), (0.62, '#CF1532'),
        (0.80, '#EE1B36'), (0.90, '#FF3E52'), (0.97, '#FFD2CE'), (1.00, '#FFF6F4')]
+REDC = [(0.00, '#000000'), (0.10, '#05060E'), (0.24, '#14152A'), (0.38, '#4A0F26'), (0.52, '#9E142E'),
+        (0.68, '#E31E3C'), (0.84, '#FF4256'), (0.95, '#FFE2DE'), (1.00, '#FFFFFF')]
 COLD = [(0.00, '#000000'), (0.20, '#06040B'), (0.45, '#2A2340'), (0.70, '#7B6E93'), (0.88, '#D2C8E2'),
         (1.00, '#F6F2FF')]
 
@@ -37,12 +39,14 @@ CFG = {
     '3465':   dict(w=(0.40, 0.45, 0.15), lo=0.03, hi=0.70, gamma=0.90, pal=RED, bloom=1.0),
     '4426':   dict(w=(0.40, 0.45, 0.15), lo=0.05, hi=0.75, gamma=1.00, pal=RED, bloom=0.9),
     '3463':   dict(w=(0.40, 0.45, 0.15), lo=0.03, hi=0.70, gamma=0.90, pal=RED, bloom=1.0, crop=(0, 420, 1080, 608)),
-    '1038':   dict(w=(0.33, 0.34, 0.33), lo=0.06, hi=0.75, gamma=1.10, pal=RED, bloom=0.6),
+    '1038':   dict(w=(0.33, 0.34, 0.33), lo=0.04, hi=0.75, gamma=1.00, pal=REDC, bloom=0.6),
     '40938':  dict(w=(0.33, 0.34, 0.33), lo=0.18, hi=1.20, gamma=1.30, pal=RED, bloom=0.6, invert=True),
-    '33899':  dict(w=(0.40, 0.30, 0.30), lo=0.10, hi=0.75, gamma=1.20, pal=RED, bloom=0.5),
+    '33899':  dict(w=(0.40, 0.30, 0.30), lo=0.06, hi=0.75, gamma=1.10, pal=REDC, bloom=0.5),
 }
 # the "cold hands" scene uses a second grade of 40938
 CFG['40938c'] = dict(CFG['40938'], hi=0.80, pal=COLD, src='40938')
+CFG['40938f'] = dict(CFG['40938'], src='40938', burn='red')     # crimson hands made of fire
+CFG['40938cf'] = dict(CFG['40938'], src='40938', burn='cold')   # white-hot hands, crimson flames on the edge
 
 
 def lut(stops, n=1024):
@@ -70,6 +74,38 @@ def grade(rgb, c):
         out = out + b * tint * c['bloom'] * 1.6
     out = 1 - np.exp(-out * 1.15)          # soft shoulder: no clipped mush
     out = out / (1 - np.exp(-1.15))
+    return (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
+def burn_hands(rgb, fire_rgb, mode):
+    f = rgb.astype(np.float32) / 255
+    v = 1 - (f @ np.array([0.33, 0.34, 0.33], np.float32))
+    hand = np.clip((v - 0.35) / 0.25, 0, 1)                       # 1 inside the silhouette
+    fire = fire_rgb.astype(np.float32) / 255 @ np.array([0.3, 0.55, 0.15], np.float32)
+    fire = np.clip((fire - 0.08) / 0.85, 0, 1) ** 1.2
+    # flames rise off the contour: smear the hand mask upward, keep only the outside rim
+    up = hand.copy()
+    for k in range(1, 9):
+        up = np.maximum(up, np.roll(hand, -k * 9, axis=0) * (1 - k / 9))
+    rim = np.clip(up - hand, 0, 1)
+    if mode == 'red':
+        val = hand * (0.42 + 0.5 * fire) + rim * fire * 1.1
+        return grade_value(val, RED, 0.7)
+    core = lut(COLD)[(np.clip(hand * (0.78 + 0.2 * fire), 0, 1) * 1023).astype(np.int32)]
+    flame = lut(RED)[(np.clip(rim * fire * 1.15 + hand * fire * 0.25, 0, 1) * 1023).astype(np.int32)]
+    out = 1 - (1 - core) * (1 - flame)                            # screen
+    return (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
+def grade_value(v, pal, bloom):
+    L = lut(pal)
+    out = L[(np.clip(v, 0, 1) * 1023).astype(np.int32)]
+    hot = np.clip(v - 0.62, 0, 1)
+    small = cv2.resize(hot, (W // 4, H // 4), interpolation=cv2.INTER_AREA)
+    b = cv2.GaussianBlur(small, (0, 0), 9) + cv2.GaussianBlur(small, (0, 0), 30) * 0.6
+    b = cv2.resize(b, (W, H), interpolation=cv2.INTER_LINEAR)[..., None]
+    out = out + b * np.array([0.95, 0.10, 0.18], np.float32) * bloom * 1.6
+    out = (1 - np.exp(-out * 1.15)) / (1 - np.exp(-1.15))
     return (np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
@@ -121,9 +157,15 @@ def encode(ids):
                                 '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '14',
                                 '-pix_fmt', 'yuv420p', '-g', '15', dst], stdin=subprocess.PIPE)
         n = 0
-        for fr in reader(cid, c):
-            enc.stdin.write(grade(fr, c).tobytes())
-            n += 1
+        if c.get('burn'):
+            fire = reader('52312', dict(CFG['52312'], src='52312'), 2.0)
+            for fr, ff in zip(reader(cid, c), fire):
+                enc.stdin.write(burn_hands(fr, ff, c['burn']).tobytes())
+                n += 1
+        else:
+            for fr in reader(cid, c):
+                enc.stdin.write(grade(fr, c).tobytes())
+                n += 1
         enc.stdin.close()
         enc.wait()
         print(f'{cid}: {n} frames → {dst}', flush=True)
