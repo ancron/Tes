@@ -315,7 +315,7 @@ class Particles:
             pts = self._shape(i, dt, streak)
             if pts is None:
                 continue
-            c = tuple(float(x) * fade for x in col)
+            c = tuple(float(x * fade) for x in col)
             cv2.fillPoly(layers[lay], [np.round(pts * 4).astype(np.int32)], c, cv2.LINE_AA, shift=2)
         return layers
 
