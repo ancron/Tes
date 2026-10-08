@@ -5,3 +5,8 @@ dist
 
 # Ignore the output video from Git but not videos you import into src/.
 out
+
+# user-provided reference sound (not ours to redistribute)
+public/audio/
+# stock footage is downloaded by scripts/fetch_footage.sh (see ASSETS.md)
+public/footage/
